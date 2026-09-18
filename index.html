@@ -347,9 +347,35 @@
             display: none;
             text-align: center;
         }
+
+    /* 更新内容のお知らせ */
+    .update-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.72); display: none; align-items: center; justify-content: center; padding: 18px; }
+    .update-overlay.is-open { display: flex; }
+    .update-dialog { width: min(100%, 460px); background: #fff; color: #1b2636; border-radius: 16px; padding: 26px; box-shadow: 0 20px 70px rgba(0,0,0,.3); line-height: 1.7; }
+    .update-dialog h2 { margin: 0 0 12px; font-size: 1.35rem; color: #172b4d; }
+    .update-dialog ul { padding-left: 1.35em; margin: 12px 0 20px; }
+    .update-dialog li { margin: 7px 0; }
+    .update-close { width: 100%; padding: 12px; border: 0; border-radius: 9px; color: white; background: #1769c2; font: inherit; font-weight: 700; cursor: pointer; }
+    .update-close:focus-visible { outline: 3px solid #e09c19; outline-offset: 3px; }
     </style>
 </head>
 <body>
+
+
+<div class="update-overlay" id="update-notice" role="presentation">
+    <section class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-description">
+        <h2 id="update-title">📢 クイズをアップデートしました！</h2>
+        <div id="update-description">
+            <ul>
+                <li><strong>途中経過を自動保存</strong>：解いた問題や正解数を保存します。</li>
+                <li><strong>続きから再開</strong>：ページを更新・再訪問しても、前回の問題に戻れます。</li>
+                <li><strong>参考URLは別タブで表示</strong>：解説を読んだら、そのタブを閉じてクイズに戻れます。</li>
+            </ul>
+            <p>※進捗はこのブラウザに保存されます。別の端末やブラウザには引き継がれません。</p>
+        </div>
+        <button type="button" class="update-close" id="update-close" onclick="closeUpdateNotice()">OK、クイズを始める！</button>
+    </section>
+</div>
 
 <div class="container">
     <header>
@@ -798,7 +824,26 @@ function prevQuestion() {
     }
 }
 
-window.onload = restoreProgress;
+
+const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_v1';
+function showUpdateNoticeOnce() {
+    try { if (localStorage.getItem(UPDATE_NOTICE_KEY) === 'seen') return; }
+    catch (error) { /* 保存が禁止されたブラウザでも表示する */ }
+    const notice = document.getElementById('update-notice');
+    notice.classList.add('is-open');
+    document.getElementById('update-close').focus();
+}
+function closeUpdateNotice() {
+    document.getElementById('update-notice').classList.remove('is-open');
+    try { localStorage.setItem(UPDATE_NOTICE_KEY, 'seen'); }
+    catch (error) { /* 保存不可の場合は次回もお知らせを表示 */ }
+}
+function initializeQuiz() {
+    restoreProgress();
+    showUpdateNoticeOnce();
+}
+
+window.onload = initializeQuiz;
 window.onresize = () => { const p = activeProblems[currentIdx]; if (p && !p.image) drawChart(p.candles); };
 </script>
 
