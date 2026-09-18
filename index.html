@@ -462,6 +462,7 @@ let isReviewMode = false;
 let reviewAnswers = {};
 let reviewClearedIds = new Set();
 let reviewDecisions = {};
+let completionShown = false;
 
 // 解答状況をこのブラウザに自動保存。保存できない環境でも通常のクイズは使える。
 const SAVE_KEY = 'sakata_quiz_progress_v2';
@@ -471,7 +472,7 @@ function saveProgress() {
             category: currentCategory, index: currentIdx, review: isReviewMode,
             reviewProblemIds: isReviewMode ? activeProblems.map(p => p.id) : [],
             wrong: [...wrongProblemIds], answers: userAnswers,
-            reviewAnswers, reviewCleared: [...reviewClearedIds], reviewDecisions
+            reviewAnswers, reviewCleared: [...reviewClearedIds], reviewDecisions, completionShown
         }));
     } catch (error) { console.warn('クイズの進捗を保存できませんでした', error); }
 }
@@ -504,6 +505,10 @@ function restoreProgress() {
     }
     currentIdx = Math.min(Math.max(0, Number(saved.index) || 0), activeProblems.length - 1);
     loadQuestion();
+    if (saved.completionShown) {
+        if (isReviewMode) showReviewSummary();
+        else showCompletionChoices();
+    }
 }
 window.addEventListener('pagehide', saveProgress);
 
@@ -514,6 +519,7 @@ document.getElementById('result-card').insertAdjacentElement('beforebegin', pers
 function selectCategory(cat) {
     currentCategory = cat;
     isReviewMode = false;
+    completionShown = false;
     document.getElementById('review-summary').style.display = 'none';
     
     document.getElementById('tab-sakata').classList.remove('active');
@@ -532,9 +538,10 @@ function selectCategory(cat) {
     loadQuestion();
 }
 
-function startReviewMode() {
+function startReviewMode(categoryOnly = false) {
     if (wrongProblemIds.size === 0) return;
     isReviewMode = true;
+    completionShown = false;
     reviewAnswers = {};
     reviewClearedIds = new Set();
     reviewDecisions = {};
@@ -546,7 +553,7 @@ function startReviewMode() {
     document.getElementById('review-banner').style.display = 'block';
 
     const all = [...rawProblems.sakata, ...rawProblems.pattern];
-    activeProblems = all.filter(p => wrongProblemIds.has(p.id));
+    activeProblems = all.filter(p => wrongProblemIds.has(p.id) && (!categoryOnly || rawProblems[currentCategory].some(q => q.id === p.id)));
     
     currentIdx = 0;
     loadQuestion();
@@ -601,6 +608,7 @@ function loadQuestion() {
 
     const roundAnswers = isReviewMode ? reviewAnswers : userAnswers;
     document.getElementById('review-summary').style.display = 'none';
+    completionShown = false;
     if (roundAnswers[p.id]) {
         showResultCard(p, roundAnswers[p.id].isCorrect);
         setButtonsEnabled(false);
@@ -790,11 +798,40 @@ function nextQuestion() {
     } else if (isReviewMode) {
         showReviewSummary();
     } else {
-        alert("このカテゴリーのすべての問題を解き終わりました！");
+        showCompletionChoices();
     }
 }
 
+// 完了画面：回答し直すか、残った誤答だけを復習するか選べる。
+function showCompletionChoices() {
+    completionShown = true;
+    const problems = rawProblems[currentCategory];
+    const correct = problems.filter(p => userAnswers[p.id]?.isCorrect).length;
+    const wrongInCategory = problems.filter(p => wrongProblemIds.has(p.id)).length;
+    const box = document.getElementById('review-summary');
+    box.innerHTML = `<div class="rs-title">🎉 全問完了！</div>
+        <div class="rs-score">${problems.length}問中 <strong>${correct}問正解</strong></div>
+        <div class="rs-remain">次はどうする？</div>
+        <button class="btn-nav btn-next-main" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>
+        ${wrongInCategory > 0 ? `<button class="btn-nav" onclick="startReviewMode(true)">❌ 誤回答だけ解く（${wrongInCategory}問）</button>` : '<div class="rs-remain">全問正解！誤回答はありません。</div>'}`;
+    box.style.display = 'flex';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('btn-prev').style.display = 'none';
+    setButtonsEnabled(false);
+    saveProgress();
+}
+
+function restartCurrentCategory() {
+    // 今回のカテゴリーの解答だけ初期化。別カテゴリーの誤答記録は維持する。
+    rawProblems[currentCategory].forEach(p => {
+        delete userAnswers[p.id];
+        wrongProblemIds.delete(p.id);
+    });
+    selectCategory(currentCategory);
+}
+
 function showReviewSummary() {
+    completionShown = true;
     const total = activeProblems.length;
     const cleared = reviewClearedIds.size;
     const remaining = wrongProblemIds.size;
@@ -811,10 +848,12 @@ function showReviewSummary() {
     }
     box.innerHTML = html;
     box.style.display = 'flex';
+    box.innerHTML += `<button class="btn-nav" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>`;
 
     document.getElementById('result-card').style.display = 'none';
     document.getElementById('btn-prev').style.display = 'none';
     setButtonsEnabled(false);
+    saveProgress();
 }
 
 function prevQuestion() {
