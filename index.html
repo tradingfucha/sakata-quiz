@@ -225,10 +225,6 @@
             text-underline-offset: 2px;
         }
 
-        #btn-prev {
-            width: 100%;
-            margin-top: 0;
-        }
 
         .reference-box a {
             color: #64b5f6;
@@ -357,6 +353,18 @@
     .update-dialog li { margin: 7px 0; }
     .update-close { width: 100%; padding: 12px; border: 0; border-radius: 9px; color: white; background: #1769c2; font: inherit; font-weight: 700; cursor: pointer; }
     .update-close:focus-visible { outline: 3px solid #e09c19; outline-offset: 3px; }
+    
+        /* 完了後の選択肢は同じ見た目で横並び。狭いスマホでも2列を維持。 */
+        .completion-actions { display: flex; width: 100%; gap: 10px; align-items: stretch; }
+        .completion-actions .btn-nav {
+            flex: 1 1 0; min-width: 0; width: 0;
+            background: var(--accent-blue); color: #fff; border: 1px solid var(--accent-blue);
+            white-space: normal; overflow-wrap: anywhere; line-height: 1.45;
+            padding: 12px 6px; font-size: clamp(0.72rem, 2.8vw, 0.88rem);
+        }
+        .completion-actions .btn-nav:hover { background: #1e4bd8; }
+        #question-nav { width: 100%; }
+        #question-nav .btn-nav { flex: 1 1 0; min-width: 0; }
     </style>
 </head>
 <body>
@@ -433,10 +441,10 @@
         <div class="explanation" id="explanation"></div>
         <div class="reference-box" id="reference-box"></div>
         
-        <div class="nav-buttons">
-            <button class="btn-nav" id="btn-prev" onclick="prevQuestion()">◀ 前の問題へ</button>
-            <button class="btn-nav btn-next-main" id="btn-next" onclick="nextQuestion()">次の問題へ ▶</button>
-        </div>
+    </div>
+    <div class="nav-buttons" id="question-nav" aria-label="問題の移動">
+        <button class="btn-nav" id="btn-prev" onclick="prevQuestion()">◀ 前の問題へ</button>
+        <button class="btn-nav btn-next-main" id="btn-next" onclick="nextQuestion()">次の問題へ ▶</button>
     </div>
 
     <div class="review-summary" id="review-summary"></div>
@@ -512,10 +520,6 @@ function restoreProgress() {
 }
 window.addEventListener('pagehide', saveProgress);
 
-// 前の問題ボタンを結果カードの外へ移し、2問目以降は回答前でも常時表示する。
-const persistentPrevButton = document.getElementById('btn-prev');
-document.getElementById('result-card').insertAdjacentElement('beforebegin', persistentPrevButton); 
-
 function selectCategory(cat) {
     currentCategory = cat;
     isReviewMode = false;
@@ -589,6 +593,7 @@ function updateStats() {
 }
 
 function loadQuestion() {
+    document.getElementById('question-nav').style.display = 'flex';
     const p = activeProblems[currentIdx];
 
     updateStats();
@@ -597,7 +602,7 @@ function loadQuestion() {
     document.getElementById('candle-count-info').innerText = p.image ? '問題画像' : `表示本数: ${p.candles.length}本`;
 
     document.getElementById('btn-prev').disabled = (currentIdx === 0);
-    document.getElementById('btn-prev').style.display = currentIdx === 0 ? 'none' : 'block';
+    document.getElementById('btn-prev').style.visibility = currentIdx === 0 ? 'hidden' : 'visible';
     
     const btnNext = document.getElementById('btn-next');
     if (currentIdx === activeProblems.length - 1) {
@@ -609,6 +614,7 @@ function loadQuestion() {
     const roundAnswers = isReviewMode ? reviewAnswers : userAnswers;
     document.getElementById('review-summary').style.display = 'none';
     completionShown = false;
+    btnNext.style.visibility = roundAnswers[p.id] ? 'visible' : 'hidden';
     if (roundAnswers[p.id]) {
         showResultCard(p, roundAnswers[p.id].isCorrect);
         setButtonsEnabled(false);
@@ -736,6 +742,7 @@ function showResultCard(p, isCorrect) {
     renderReviewChoice(p, isCorrect);
 
     document.getElementById('result-card').style.display = 'flex';
+    document.getElementById('btn-next').style.visibility = 'visible';
 }
 
 function renderReviewChoice(p, isCorrect) {
@@ -812,11 +819,14 @@ function showCompletionChoices() {
     box.innerHTML = `<div class="rs-title">🎉 全問完了！</div>
         <div class="rs-score">${problems.length}問中 <strong>${correct}問正解</strong></div>
         <div class="rs-remain">次はどうする？</div>
-        <button class="btn-nav btn-next-main" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>
-        ${wrongInCategory > 0 ? `<button class="btn-nav" onclick="startReviewMode(true)">❌ 誤回答だけ解く（${wrongInCategory}問）</button>` : '<div class="rs-remain">全問正解！誤回答はありません。</div>'}`;
+        <div class="completion-actions">
+            <button class="btn-nav" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>
+            ${wrongInCategory > 0 ? `<button class="btn-nav" onclick="startReviewMode(true)">❌ 誤回答だけ解く（${wrongInCategory}問）</button>` : ''}
+        </div>
+        ${wrongInCategory === 0 ? '<div class="rs-remain">全問正解！誤回答はありません。</div>' : ''}`;
     box.style.display = 'flex';
     document.getElementById('result-card').style.display = 'none';
-    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('question-nav').style.display = 'none';
     setButtonsEnabled(false);
     saveProgress();
 }
@@ -851,7 +861,7 @@ function showReviewSummary() {
     box.innerHTML += `<button class="btn-nav" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>`;
 
     document.getElementById('result-card').style.display = 'none';
-    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('question-nav').style.display = 'none';
     setButtonsEnabled(false);
     saveProgress();
 }
