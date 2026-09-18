@@ -355,15 +355,15 @@
     .update-close:focus-visible { outline: 3px solid #e09c19; outline-offset: 3px; }
     
         /* 完了後の選択肢は同じ見た目で横並び。狭いスマホでも2列を維持。 */
-        .completion-actions { display: flex; width: 100%; gap: 10px; align-items: stretch; }
+        .completion-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 10px; align-items: stretch; }
         .completion-actions .btn-nav {
-            flex: 1 1 0; min-width: 0; width: 0;
+            min-width: 0; width: 100%;
             background: var(--accent-blue); color: #fff; border: 1px solid var(--accent-blue);
             white-space: normal; overflow-wrap: anywhere; line-height: 1.45;
             padding: 12px 6px; font-size: clamp(0.72rem, 2.8vw, 0.88rem);
         }
         .completion-actions .btn-nav:hover { background: #1e4bd8; }
-        #question-nav { width: 100%; }
+        #question-nav { display: flex; flex-direction: row; flex-wrap: nowrap; width: 100%; gap: 10px; }
         #question-nav .btn-nav { flex: 1 1 0; min-width: 0; }
     </style>
 </head>
@@ -471,6 +471,7 @@ let reviewAnswers = {};
 let reviewClearedIds = new Set();
 let reviewDecisions = {};
 let completionShown = false;
+let reviewCategoryOnly = false;
 
 // 解答状況をこのブラウザに自動保存。保存できない環境でも通常のクイズは使える。
 const SAVE_KEY = 'sakata_quiz_progress_v2';
@@ -480,7 +481,7 @@ function saveProgress() {
             category: currentCategory, index: currentIdx, review: isReviewMode,
             reviewProblemIds: isReviewMode ? activeProblems.map(p => p.id) : [],
             wrong: [...wrongProblemIds], answers: userAnswers,
-            reviewAnswers, reviewCleared: [...reviewClearedIds], reviewDecisions, completionShown
+            reviewAnswers, reviewCleared: [...reviewClearedIds], reviewDecisions, completionShown, reviewCategoryOnly
         }));
     } catch (error) { console.warn('クイズの進捗を保存できませんでした', error); }
 }
@@ -495,6 +496,7 @@ function restoreProgress() {
     wrongProblemIds = new Set(Array.isArray(saved.wrong) ? saved.wrong : []);
     userAnswers = saved.answers && typeof saved.answers === 'object' ? saved.answers : {};
     selectCategory(saved.category);
+    reviewCategoryOnly = !!saved.reviewCategoryOnly;
     if (saved.review && Array.isArray(saved.reviewProblemIds)) {
         const ids = new Set(saved.reviewProblemIds);
         const all = [...rawProblems.sakata, ...rawProblems.pattern];
@@ -523,6 +525,7 @@ window.addEventListener('pagehide', saveProgress);
 function selectCategory(cat) {
     currentCategory = cat;
     isReviewMode = false;
+    reviewCategoryOnly = false;
     completionShown = false;
     document.getElementById('review-summary').style.display = 'none';
     
@@ -543,24 +546,24 @@ function selectCategory(cat) {
 }
 
 function startReviewMode(categoryOnly = false) {
-    if (wrongProblemIds.size === 0) return;
+    const source = categoryOnly ? rawProblems[currentCategory] : [...rawProblems.sakata, ...rawProblems.pattern];
+    const reviewList = source.filter(p => wrongProblemIds.has(p.id));
+    if (!reviewList.length) return;
     isReviewMode = true;
+    reviewCategoryOnly = categoryOnly;
     completionShown = false;
     reviewAnswers = {};
     reviewClearedIds = new Set();
     reviewDecisions = {};
     document.getElementById('review-summary').style.display = 'none';
-    
     document.getElementById('tab-sakata').classList.remove('active');
     document.getElementById('tab-pattern').classList.remove('active');
     document.getElementById('tab-review').classList.add('active');
     document.getElementById('review-banner').style.display = 'block';
-
-    const all = [...rawProblems.sakata, ...rawProblems.pattern];
-    activeProblems = all.filter(p => wrongProblemIds.has(p.id) && (!categoryOnly || rawProblems[currentCategory].some(q => q.id === p.id)));
-    
+    activeProblems = reviewList;
     currentIdx = 0;
     loadQuestion();
+    saveProgress();
 }
 
 function updateStats() {
@@ -843,23 +846,23 @@ function restartCurrentCategory() {
 function showReviewSummary() {
     completionShown = true;
     const total = activeProblems.length;
-    const cleared = reviewClearedIds.size;
-    const remaining = wrongProblemIds.size;
+    const cleared = activeProblems.filter(p => reviewClearedIds.has(p.id)).length;
+    // 今回復習した範囲だけを数える。別カテゴリーの誤答は混ぜない。
+    const remaining = activeProblems.filter(p => wrongProblemIds.has(p.id)).length;
     const box = document.getElementById('review-summary');
-
-    let html = '<div class="rs-title">復習おつかれさまでした</div>';
-    html += `<div class="rs-score">${total}問中 <strong>${cleared}問</strong> を復習リストから外しました</div>`;
+    let html = `<div class="rs-title">🎉 復習完了！</div>
+        <div class="rs-score">${total}問中 <strong>${cleared}問</strong> を復習リストから外しました</div>`;
     if (remaining > 0) {
-        html += `<div class="rs-remain">まだ ${remaining}問 が誤答リストに残っています</div>`;
-        html += '<button class="btn-nav btn-next-main" onclick="startReviewMode()">残りをもう一周 ▶</button>';
+        html += `<div class="rs-remain">まだ ${remaining}問 が今回の復習範囲に残っています</div>`;
     } else {
-        html += '<div class="rs-remain">🎉 誤答はすべてクリアしました！</div>';
-        html += '<button class="btn-nav" onclick="selectCategory(\'sakata\')">酒田五法・関連用語に戻る</button>';
+        html += '<div class="rs-remain">🎉 今回の誤回答はすべてクリアしました！</div>';
     }
+    html += `<div class="completion-actions">
+        <button class="btn-nav" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>
+        ${remaining > 0 ? `<button class="btn-nav" onclick="startReviewMode(reviewCategoryOnly)">❌ 誤回答だけ解く（${remaining}問）</button>` : ''}
+    </div>`;
     box.innerHTML = html;
     box.style.display = 'flex';
-    box.innerHTML += `<button class="btn-nav" onclick="restartCurrentCategory()">🔄 最初からもう一度解く</button>`;
-
     document.getElementById('result-card').style.display = 'none';
     document.getElementById('question-nav').style.display = 'none';
     setButtonsEnabled(false);
