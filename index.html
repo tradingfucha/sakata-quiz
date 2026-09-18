@@ -825,7 +825,7 @@ function prevQuestion() {
 }
 
 
-const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_v1';
+const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_v2';
 function showUpdateNoticeOnce() {
     try { if (localStorage.getItem(UPDATE_NOTICE_KEY) === 'seen') return; }
     catch (error) { /* 保存が禁止されたブラウザでも表示する */ }
