@@ -437,6 +437,50 @@ let reviewAnswers = {};
 let reviewClearedIds = new Set();
 let reviewDecisions = {};
 
+// 解答状況をこのブラウザに自動保存。保存できない環境でも通常のクイズは使える。
+const SAVE_KEY = 'sakata_quiz_progress_v2';
+function saveProgress() {
+    try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+            category: currentCategory, index: currentIdx, review: isReviewMode,
+            reviewProblemIds: isReviewMode ? activeProblems.map(p => p.id) : [],
+            wrong: [...wrongProblemIds], answers: userAnswers,
+            reviewAnswers, reviewCleared: [...reviewClearedIds], reviewDecisions
+        }));
+    } catch (error) { console.warn('クイズの進捗を保存できませんでした', error); }
+}
+function restoreProgress() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); }
+    catch (error) { saved = null; }
+    if (!saved || !['sakata', 'pattern'].includes(saved.category)) {
+        selectCategory('sakata');
+        return;
+    }
+    wrongProblemIds = new Set(Array.isArray(saved.wrong) ? saved.wrong : []);
+    userAnswers = saved.answers && typeof saved.answers === 'object' ? saved.answers : {};
+    selectCategory(saved.category);
+    if (saved.review && Array.isArray(saved.reviewProblemIds)) {
+        const ids = new Set(saved.reviewProblemIds);
+        const all = [...rawProblems.sakata, ...rawProblems.pattern];
+        const problems = all.filter(p => ids.has(p.id));
+        if (problems.length) {
+            isReviewMode = true;
+            activeProblems = problems;
+            reviewAnswers = saved.reviewAnswers && typeof saved.reviewAnswers === 'object' ? saved.reviewAnswers : {};
+            reviewClearedIds = new Set(Array.isArray(saved.reviewCleared) ? saved.reviewCleared : []);
+            reviewDecisions = saved.reviewDecisions && typeof saved.reviewDecisions === 'object' ? saved.reviewDecisions : {};
+            document.getElementById('tab-sakata').classList.remove('active');
+            document.getElementById('tab-pattern').classList.remove('active');
+            document.getElementById('tab-review').classList.add('active');
+            document.getElementById('review-banner').style.display = 'block';
+        }
+    }
+    currentIdx = Math.min(Math.max(0, Number(saved.index) || 0), activeProblems.length - 1);
+    loadQuestion();
+}
+window.addEventListener('pagehide', saveProgress);
+
 // 前の問題ボタンを結果カードの外へ移し、2問目以降は回答前でも常時表示する。
 const persistentPrevButton = document.getElementById('btn-prev');
 document.getElementById('result-card').insertAdjacentElement('beforebegin', persistentPrevButton); 
@@ -543,6 +587,7 @@ function loadQuestion() {
     const patternImage = document.getElementById('patternImage');
     if (p.image) { canvas.style.display='none'; patternImage.style.display='block'; patternImage.src=p.image; patternImage.alt=p.title+' のチャート図'; }
     else { patternImage.style.display='none'; patternImage.removeAttribute('src'); canvas.style.display='block'; drawChart(p.candles); }
+    saveProgress();
 }
 
 function drawChart(candles) {
@@ -631,6 +676,7 @@ function makeChoice(userChoice) {
     setButtonsEnabled(false);
     updateStats();
     showResultCard(p, isCorrect);
+    saveProgress();
 }
 
 function showResultCard(p, isCorrect) {
@@ -703,6 +749,7 @@ function decideReviewRemoval(remove) {
 
     updateStats();
     renderReviewChoice(p, true);
+    saveProgress();
 }
 
 function setButtonsEnabled(enabled) {
@@ -751,8 +798,8 @@ function prevQuestion() {
     }
 }
 
-window.onload = () => selectCategory('sakata');
-window.onresize = () => drawChart(activeProblems[currentIdx].candles);
+window.onload = restoreProgress;
+window.onresize = () => { const p = activeProblems[currentIdx]; if (p && !p.image) drawChart(p.candles); };
 </script>
 
 </body>
