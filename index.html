@@ -351,7 +351,7 @@
     /* 更新内容のお知らせ */
     .update-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.72); display: none; align-items: center; justify-content: center; padding: 18px; }
     .update-overlay.is-open { display: flex; }
-    .update-dialog { width: min(100%, 460px); background: #fff; color: #1b2636; border-radius: 16px; padding: 26px; box-shadow: 0 20px 70px rgba(0,0,0,.3); line-height: 1.7; }
+    .update-dialog { max-height: min(85dvh, 720px); overflow-y: auto; overscroll-behavior: contain; width: min(100%, 460px); background: #fff; color: #1b2636; border-radius: 16px; padding: 26px; box-shadow: 0 20px 70px rgba(0,0,0,.3); line-height: 1.7; }
     .update-dialog h2 { margin: 0 0 12px; font-size: 1.35rem; color: #172b4d; }
     .update-dialog ul { padding-left: 1.35em; margin: 12px 0 20px; }
     .update-dialog li { margin: 7px 0; }
@@ -387,7 +387,7 @@
 .question-index-actions button:disabled { opacity:.48; cursor:not-allowed; }
 @media (max-width:480px) { .question-index-actions button { font-size:.83rem; padding:12px 4px; overflow-wrap:anywhere; } }
 </style>
-    <meta name="sakata-app-version" content="20260919-open-v2">
+    <meta name="sakata-app-version" content="20260919-notice-v3">
 </head>
 <body>
 
@@ -396,12 +396,18 @@
     <section class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-description">
         <h2 id="update-title">📢 クイズをアップデートしました！</h2>
         <div id="update-description">
+            <p>今回のアップデートで、途中からの再開・復習・結果確認が使いやすくなりました。</p>
             <ul>
-                <li><strong>途中経過を自動保存</strong>：解いた問題や正解数を保存します。</li>
-                <li><strong>続きから再開</strong>：ページを更新・再訪問しても、前回の問題に戻れます。</li>
-                <li><strong>最新版を確認</strong>：新しい版が公開されたら更新を案内します。更新時も進捗を保存します。</li>
+                <li><strong>解答状況を自動保存</strong>：問題番号や解答履歴を保存。ページを開き直しても続きから再開できます。</li>
+                <li><strong>参考URLは別タブで表示</strong>：参考ページを閉じればクイズに戻れます。</li>
+                <li><strong>問題一覧・進捗確認</strong>：「酒田五法」タブを押すと、出題順のパターン名と正解・誤回答・未回答を確認できます。一覧から問題を選んで解けます。</li>
+                <li><strong>誤回答タブを常時表示</strong>：解き始める前から表示。苦手な問題をいつでも確認・復習できます。表記は「誤回答」に統一しました。</li>
+                <li><strong>解答後の移動を改善</strong>：「前の問題」「次の問題」を解答・解説の下に横並びで配置しました。</li>
+                <li><strong>終了後の選択肢を追加</strong>：「結果を見る」「誤回答だけ解き直す」「最初からもう一度解く」を選べます。未回答が残っている場合は「未回答だけ解く」も選べます。</li>
+                <li><strong>結果一覧からも復習</strong>：未回答の個別選択、未回答だけの出題、誤回答だけの復習、最初からの再挑戦ができます。すべて回答したら完了画面に進めます。</li>
+                <li><strong>最新版の確認機能</strong>：起動時や画面に戻ったときに軽量な更新情報を確認。手動の「更新を確認」ボタンも追加しました。新版があれば確認してから更新します。</li>
             </ul>
-            <p>※進捗はこのブラウザに保存されます。別の端末やブラウザには引き継がれません。</p>
+            <p>※進捗・お知らせの既読情報はこのブラウザに保存されます。別端末との同期はありません。更新のお知らせはこの版につき原則1回だけ表示します。</p>
         </div>
         <button type="button" class="update-close" id="update-close" onclick="closeUpdateNotice()">OK、クイズを始める！</button>
     </section>
@@ -1081,7 +1087,7 @@ function prevQuestion() {
 }
 
 
-const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_auto_update_1';
+const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_full_changelog_v3';
 function showUpdateNoticeOnce() {
     try { if (localStorage.getItem(UPDATE_NOTICE_KEY) === 'seen') return; }
     catch (error) { /* 保存が禁止されたブラウザでも表示する */ }
@@ -1096,7 +1102,7 @@ function closeUpdateNotice() {
 }
 // GitHub Pages: 小さな version.json だけを取得する。ローカルHTMLではネット通信しない。
 // 新版を公開するときは APP_VERSION と version.json の version を同じ値に変更する。
-const APP_VERSION = '20260919-open-v2';
+const APP_VERSION = '20260919-notice-v3';
 const UPDATE_LAST_CHECK_KEY = 'sakata_version_last_successful_check';
 const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 let checkingForAppUpdate = false;
