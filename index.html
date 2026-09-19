@@ -386,8 +386,30 @@
 .question-index-actions button { flex:1; min-width:0; padding:12px 6px; border:1px solid var(--accent-blue); background:var(--accent-blue); color:white; border-radius:8px; font:inherit; font-weight:700; cursor:pointer; }
 .question-index-actions button:disabled { opacity:.48; cursor:not-allowed; }
 @media (max-width:480px) { .question-index-actions button { font-size:.83rem; padding:12px 4px; overflow-wrap:anywhere; } }
+
+/* お知らせ履歴：一般的な更新履歴のカード型レイアウト */
+#open-update-history { font: inherit; font-size:.9rem; border:1px solid #2563eb; color:#2563eb; background:#fff; border-radius:8px; padding:9px 12px; cursor:pointer; }
+.history-overlay { position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.72); display:none; align-items:center; justify-content:center; padding:16px; }
+.history-overlay.is-open { display:flex; }
+.history-dialog { background:#fff; color:#1b2636; border-radius:16px; width:min(100%,540px); max-height:88dvh; display:flex; flex-direction:column; box-shadow:0 20px 70px rgba(0,0,0,.3); overflow:hidden; }
+.history-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:18px 20px; border-bottom:1px solid #e2e8f0; }
+.history-head h2 { margin:0; font-size:1.2rem; color:#172b4d; }
+.history-x { border:0; border-radius:8px; padding:8px 12px; background:#edf2f7; color:#172b4d; font:inherit; cursor:pointer; }
+.history-scroll { padding:18px 20px; overflow-y:auto; overscroll-behavior:contain; }
+.history-entry { border-left:3px solid #2563eb; padding:0 0 2px 16px; line-height:1.7; }
+.history-entry time { color:#64748b; font-size:.86rem; }
+.history-entry h3 { margin:4px 0 10px; font-size:1.05rem; color:#172b4d; }
+.history-entry ul { margin:8px 0 14px; padding-left:1.35em; }
+.history-entry li { margin:7px 0; }
+.history-entry .history-note { font-size:.85rem; color:#475569; }
+.history-summary {background:#eff6ff; border-radius:10px; padding:10px 14px; margin-bottom:18px;}
+.history-summary p {margin:0;}
+.history-feature {padding:13px 0; border-top:1px solid #e2e8f0;}
+.history-feature h4 {font-size:1rem; margin:0 0 7px; color:#1d4ed8;}
+.history-feature p {margin:6px 0; line-height:1.75;}
+.history-footnote {font-size:.85rem; color:#64748b; border-top:1px solid #e2e8f0; padding-top:12px;}
 </style>
-    <meta name="sakata-app-version" content="20260919-notice-v3">
+    <meta name="sakata-app-version" content="20260919-history-v5">
 </head>
 <body>
 
@@ -411,6 +433,26 @@
     </section>
 </div>
 
+
+<div class="history-overlay" id="update-history" aria-hidden="true">
+  <section class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="history-title">
+    <div class="history-head"><h2 id="history-title">📋 更新履歴</h2><button type="button" id="history-close" class="history-x" onclick="closeUpdateHistory()" aria-label="更新履歴を閉じる">✕ 閉じる</button></div>
+    <div class="history-scroll">
+      <article class="history-entry">
+        <time datetime="2026-09-19">2026.09.19</time><h3>クイズをアップデートしました</h3>
+        <div id="history-details"><div class="history-summary"><p>この更新では、途中でページを離れても続きから学習できるようにし、解答状況に合わせて問題を選べるようにしました。</p></div>
+        <section class="history-feature"><h4>1. 途中保存・再開</h4><p><strong>以前：</strong>参考ページを開いたりクイズを開き直したりすると、最初の問題に戻ることがありました。</p><p><strong>変更後：</strong>問題番号と解答状況をブラウザに自動保存。再読み込み後も続きから再開できます。参考URLは別タブで開くので、参考ページを閉じると元のクイズに戻れます。</p></section>
+        <section class="history-feature"><h4>2. 出題順の問題一覧と進捗確認</h4><p>「酒田五法」タブで、出題順にパターン名と「正解・誤回答・未回答」を一覧表示します。解いている途中で開いても進捗をリセットしません。一覧の問題名をタップすると、その問題を個別に確認・解答できます。</p></section>
+        <section class="history-feature"><h4>3. 誤回答・未回答をまとめて解く</h4><p>間違えた問題だけを復習する「誤回答だけ解き直す」と、まだ解いていない問題をまとめて進める「未回答だけ解く」を追加。最初の問題から全問をやり直さず、必要な問題を選べます。</p></section>
+        <section class="history-feature"><h4>4. 解答後の結果画面</h4><p>すべて回答したときは「結果を見る」「誤回答だけ解き直す」「最初からもう一度解く」の3つから選べます。未回答が残る場合は「未回答だけ解く」も表示。誤回答が0問なら誤回答の復習ボタンは押せません。</p></section>
+        <section class="history-feature"><h4>5. 結果一覧から次の学習へ</h4><p>「結果を見る」から一覧を開き、正誤や未回答を見返せます。結果一覧の下からも「未回答だけ解く」「誤回答だけ解き直す」「最初からもう一度解く」を選べます。未回答の問題名を押して1問ずつ解くこともできます。</p></section>
+        <section class="history-feature"><h4>6. 更新確認のしくみ</h4><p>ページを開いたときや、別のアプリ・タブから戻ったときに小さな <code>version.json</code> で最新版を確認します。画面の「更新を確認」ボタンでも手動確認できます。新しい版が見つかった場合は、確認してから再読み込みするため、解答中に突然画面が切り替わることはありません。</p></section>
+        <p class="history-footnote">※解答状況とお知らせの既読情報は、利用中のブラウザ内に保存されます。別の端末やブラウザとの同期はありません。</p></div>
+      </article>
+    </div>
+  </section>
+</div>
+
 <div class="container">
     <header>
         <h1>酒田五法＆チャートパターン テスト</h1>
@@ -419,6 +461,7 @@
 
     <div class="update-tools" aria-label="アプリの更新確認">
         <button type="button" id="manual-update-check" onclick="checkForAppUpdate(true)">🔄 更新を確認</button>
+        <button type="button" id="open-update-history" onclick="openUpdateHistory()">📋 更新履歴</button>
         <span id="update-check-status" role="status" aria-live="polite"></span>
     </div>
 
@@ -1085,7 +1128,30 @@ function prevQuestion() {
 }
 
 
-const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_full_changelog_v3';
+
+// 更新履歴は詳細版、初回のお知らせは短い要約として別々に表示。
+let historyPreviousFocus = null;
+function openUpdateHistory() {
+  const history = document.getElementById('update-history');
+  const dest = document.getElementById('history-details');
+  if (!history || !dest) return;
+  historyPreviousFocus = document.activeElement;
+  history.classList.add('is-open');
+  history.setAttribute('aria-hidden', 'false');
+  document.getElementById('history-close').focus();
+}
+function closeUpdateHistory() {
+  const history = document.getElementById('update-history');
+  if (!history) return;
+  history.classList.remove('is-open');
+  history.setAttribute('aria-hidden', 'true');
+  if (historyPreviousFocus && typeof historyPreviousFocus.focus === 'function') historyPreviousFocus.focus();
+}
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape' && document.getElementById('update-history').classList.contains('is-open')) closeUpdateHistory();
+});
+
+const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_history_v4';
 function showUpdateNoticeOnce() {
     try { if (localStorage.getItem(UPDATE_NOTICE_KEY) === 'seen') return; }
     catch (error) { /* 保存が禁止されたブラウザでも表示する */ }
@@ -1100,7 +1166,7 @@ function closeUpdateNotice() {
 }
 // GitHub Pages: 小さな version.json だけを取得する。ローカルHTMLではネット通信しない。
 // 新版を公開するときは APP_VERSION と version.json の version を同じ値に変更する。
-const APP_VERSION = '20260919-notice-v3';
+const APP_VERSION = '20260919-history-v5';
 const UPDATE_LAST_CHECK_KEY = 'sakata_version_last_successful_check';
 const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 let checkingForAppUpdate = false;
