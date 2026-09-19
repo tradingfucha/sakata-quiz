@@ -387,7 +387,7 @@
 .question-index-actions button:disabled { opacity:.48; cursor:not-allowed; }
 @media (max-width:480px) { .question-index-actions button { font-size:.83rem; padding:12px 4px; overflow-wrap:anywhere; } }
 </style>
-    <meta name="sakata-app-version" content="20260919-daily-v1">
+    <meta name="sakata-app-version" content="20260919-open-v2">
 </head>
 <body>
 
@@ -1096,25 +1096,28 @@ function closeUpdateNotice() {
 }
 // GitHub Pages: 小さな version.json だけを取得する。ローカルHTMLではネット通信しない。
 // 新版を公開するときは APP_VERSION と version.json の version を同じ値に変更する。
-const APP_VERSION = '20260919-daily-v1';
+const APP_VERSION = '20260919-open-v2';
 const UPDATE_LAST_CHECK_KEY = 'sakata_version_last_successful_check';
 const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 let checkingForAppUpdate = false;
+let lastAttemptInThisPage = 0;
 let promptedAppVersion = null;
 function updateCheckStatus(message) {
     const status = document.getElementById('update-check-status');
     if (status) status.textContent = message;
 }
-async function checkForAppUpdate(manual = false) {
+async function checkForAppUpdate(manual = false, onOpen = false) {
     if (checkingForAppUpdate) return;
+    if (!manual && Date.now() - lastAttemptInThisPage < 5000) return;
     if (!/^https?:$/.test(location.protocol)) {
         if (manual) alert('公開後のGitHub Pages上で更新を確認できます。ローカル版では確認できません。');
         return;
     }
     let last = 0;
     try { last = Number(localStorage.getItem(UPDATE_LAST_CHECK_KEY)) || 0; } catch (error) { /* 保存不可なら再確認 */ }
-    if (!manual && Date.now() - last < UPDATE_CHECK_INTERVAL) return;
+    if (!manual && !onOpen && Date.now() - last < UPDATE_CHECK_INTERVAL) return;
     checkingForAppUpdate = true;
+    lastAttemptInThisPage = Date.now();
     const button = document.getElementById('manual-update-check');
     if (button) button.disabled = true;
     if (manual) updateCheckStatus('更新を確認しています…');
@@ -1152,11 +1155,11 @@ async function checkForAppUpdate(manual = false) {
 function initializeQuiz() {
     restoreProgress();
     showUpdateNoticeOnce();
-    checkForAppUpdate();
-    // 開きっぱなしでも、最後の成功から24時間過ぎたら確認。タブ復帰時にも判定。
+    checkForAppUpdate(false, true); // 起動時は毎回、小さなversion.jsonだけ取得
+    // 開きっぱなしでは24時間ごと。タブ復帰時は毎回、軽量な更新情報を確認。
     setInterval(() => checkForAppUpdate(), 60 * 60 * 1000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForAppUpdate(); });
-    window.addEventListener('focus', () => checkForAppUpdate());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForAppUpdate(false, true); });
+    window.addEventListener('focus', () => checkForAppUpdate(false, true));
 }
 
 window.onload = initializeQuiz;
