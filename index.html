@@ -344,6 +344,10 @@
             text-align: center;
         }
 
+    .update-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
+    #manual-update-check { font: inherit; font-size: 0.9rem; border: 1px solid #2563eb; color: #2563eb; background: #fff; border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+    #manual-update-check:disabled { opacity: .65; cursor: wait; }
+    #update-check-status { font-size: .8rem; color: #4b5563; }
     /* 更新内容のお知らせ */
     .update-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.72); display: none; align-items: center; justify-content: center; padding: 18px; }
     .update-overlay.is-open { display: flex; }
@@ -383,6 +387,7 @@
 .question-index-actions button:disabled { opacity:.48; cursor:not-allowed; }
 @media (max-width:480px) { .question-index-actions button { font-size:.83rem; padding:12px 4px; overflow-wrap:anywhere; } }
 </style>
+    <meta name="sakata-app-version" content="20260919-daily-v1">
 </head>
 <body>
 
@@ -394,7 +399,7 @@
             <ul>
                 <li><strong>途中経過を自動保存</strong>：解いた問題や正解数を保存します。</li>
                 <li><strong>続きから再開</strong>：ページを更新・再訪問しても、前回の問題に戻れます。</li>
-                <li><strong>参考URLは別タブで表示</strong>：解説を読んだら、そのタブを閉じてクイズに戻れます。</li>
+                <li><strong>最新版を確認</strong>：新しい版が公開されたら更新を案内します。更新時も進捗を保存します。</li>
             </ul>
             <p>※進捗はこのブラウザに保存されます。別の端末やブラウザには引き継がれません。</p>
         </div>
@@ -407,6 +412,11 @@
         <h1>酒田五法＆チャートパターン テスト</h1>
         <p>iFinance / SBI FXトレード 完全準拠版</p>
     </header>
+
+    <div class="update-tools" aria-label="アプリの更新確認">
+        <button type="button" id="manual-update-check" onclick="checkForAppUpdate(true)">🔄 更新を確認</button>
+        <span id="update-check-status" role="status" aria-live="polite"></span>
+    </div>
 
     <div class="category-tabs">
         <button class="tab-btn active" id="tab-sakata" onclick="openQuestionIndex('sakata')">酒田五法・関連用語</button>
@@ -1071,7 +1081,7 @@ function prevQuestion() {
 }
 
 
-const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_v2';
+const UPDATE_NOTICE_KEY = 'sakata_update_notice_20260919_auto_update_1';
 function showUpdateNoticeOnce() {
     try { if (localStorage.getItem(UPDATE_NOTICE_KEY) === 'seen') return; }
     catch (error) { /* 保存が禁止されたブラウザでも表示する */ }
@@ -1084,9 +1094,69 @@ function closeUpdateNotice() {
     try { localStorage.setItem(UPDATE_NOTICE_KEY, 'seen'); }
     catch (error) { /* 保存不可の場合は次回もお知らせを表示 */ }
 }
+// GitHub Pages: 小さな version.json だけを取得する。ローカルHTMLではネット通信しない。
+// 新版を公開するときは APP_VERSION と version.json の version を同じ値に変更する。
+const APP_VERSION = '20260919-daily-v1';
+const UPDATE_LAST_CHECK_KEY = 'sakata_version_last_successful_check';
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
+let checkingForAppUpdate = false;
+let promptedAppVersion = null;
+function updateCheckStatus(message) {
+    const status = document.getElementById('update-check-status');
+    if (status) status.textContent = message;
+}
+async function checkForAppUpdate(manual = false) {
+    if (checkingForAppUpdate) return;
+    if (!/^https?:$/.test(location.protocol)) {
+        if (manual) alert('公開後のGitHub Pages上で更新を確認できます。ローカル版では確認できません。');
+        return;
+    }
+    let last = 0;
+    try { last = Number(localStorage.getItem(UPDATE_LAST_CHECK_KEY)) || 0; } catch (error) { /* 保存不可なら再確認 */ }
+    if (!manual && Date.now() - last < UPDATE_CHECK_INTERVAL) return;
+    checkingForAppUpdate = true;
+    const button = document.getElementById('manual-update-check');
+    if (button) button.disabled = true;
+    if (manual) updateCheckStatus('更新を確認しています…');
+    try {
+        // 日付クエリでブラウザやCDNの古いJSONを避ける。HTML本体は取得しない。
+        const url = new URL('version.json', location.href);
+        url.searchParams.set('_check', String(Date.now()));
+        const response = await fetch(url.href, {cache: 'no-store'});
+        if (!response.ok) throw new Error('version.json: HTTP ' + response.status);
+        const data = await response.json();
+        const version = data && typeof data.version === 'string' ? data.version.trim() : '';
+        if (!version) throw new Error('バージョン情報がありません');
+        try { localStorage.setItem(UPDATE_LAST_CHECK_KEY, String(Date.now())); } catch (error) { /* 保存不可 */ }
+        if (version === APP_VERSION) {
+            if (manual) { updateCheckStatus('現在、最新版です'); alert('現在、最新版です。'); }
+            return;
+        }
+        if (!manual && version === promptedAppVersion) return;
+        promptedAppVersion = version;
+        updateCheckStatus('新しいバージョンがあります');
+        if (confirm('新しいバージョンが公開されました。\n進捗を保存して最新版に更新しますか？')) {
+            saveProgress();
+            const page = new URL(location.href);
+            page.searchParams.set('_sakata_fresh', version);
+            location.replace(page.href);
+        }
+    } catch (error) {
+        console.info('更新確認に失敗しました', error);
+        if (manual) { updateCheckStatus('更新確認に失敗しました'); alert('更新を確認できませんでした。通信環境を確認して、もう一度お試しください。'); }
+    } finally {
+        checkingForAppUpdate = false;
+        if (button) button.disabled = false;
+    }
+}
 function initializeQuiz() {
     restoreProgress();
     showUpdateNoticeOnce();
+    checkForAppUpdate();
+    // 開きっぱなしでも、最後の成功から24時間過ぎたら確認。タブ復帰時にも判定。
+    setInterval(() => checkForAppUpdate(), 60 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForAppUpdate(); });
+    window.addEventListener('focus', () => checkForAppUpdate());
 }
 
 window.onload = initializeQuiz;
